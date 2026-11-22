@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WHS 参考サイトへ移動</title>
+<style>
+  :root { --bg: #f4f6f9; --text: #1d2330; --accent: #2f6fde; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #12151b; --text: #e6e9ef; --accent: #5b8ff0; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", sans-serif; padding: 24px 16px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<p id="msg">同盟リストを読み込んでいます…</p>
+<script>
+// players.txt の全員を参考サイトの形式（ID:王国）にして移動する
+fetch("players.txt", { cache: "no-store" })
+  .then(r => r.text())
+  .then(t => {
+    const ids = [...new Set(t.trim().split("\n").map(l => l.split(":")[0].trim()).filter(id => /^\d+$/.test(id)))];
+    const url = "https://aoaowos.github.io/wos-giftcenter/#players=" + ids.map(id => id + ":3560").join(",");
+    document.getElementById("msg").innerHTML = `${ids.length}人分を読み込みました。移動しない場合は <a href="${url}">こちら</a> を押してください。`;
+    location.replace(url);
+  })
+  .catch(() => { document.getElementById("msg").textContent = "同盟リストを読み込めませんでした。再読み込みしてください。"; });
+</script>
+</body>
+</html>
