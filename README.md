@@ -1,13 +1,13 @@
-# WOS ギフトコード一括入力
+# WHS ギフトコード一括入力
 
 最大100人分のプレイヤーIDに、ギフトコードをまとめて入力するサイトです。
 
 ## 公開方法（GitHub Pages・無料）
 
-1. GitHub で新しいリポジトリを作る（例：`wos-giftcode`、Public）
+1. GitHub で新しいリポジトリを作る（例：`whs`、Public）
 2. `index.html` をアップロードする（「Add file」→「Upload files」）
 3. リポジトリの「Settings」→「Pages」で、Branch を `main`、フォルダを `/ (root)` にして保存する
-4. 数分後に `https://<ユーザー名>.github.io/wos-giftcode/` で開けるようになる
+4. 数分後に `https://<ユーザー名>.github.io/whs/` で開けるようになる
 
 ## 使い方
 
