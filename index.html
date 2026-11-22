@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WOS ギフトコード一括入力</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #ffffff; --text: #1d2330; --muted: #677085;
+    --line: #dde2ea; --accent: #2f6fde; --accent-text: #ffffff;
+    --ok: #1d8a4e; --warn: #b7791f; --err: #c53030;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #98a1b3;
+      --line: #2c3340; --accent: #5b8ff0; --accent-text: #0d1117;
+      --ok: #4cc287; --warn: #e0a84a; --err: #f07070;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 10px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  textarea, input[type=text], input[type=number] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--text); font: inherit; }
+  textarea { min-height: 140px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 220px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .count { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .count.over { color: var(--err); font-weight: 600; }
+  .progress { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .summary { font-size: 14px; margin-top: 8px; }
+  #captchaBox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+  #captchaBox .card { max-width: 360px; width: 100%; }
+  #captchaImg { display: block; max-width: 100%; margin: 8px 0; background: #fff; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>WOS ギフトコード一括入力</h1>
+  <p class="sub">最大100人分のプレイヤーIDにギフトコードをまとめて入力します。公式サイトと同じAPIを使います。</p>
+
+  <section class="card">
+    <h2>1. プレイヤーID</h2>
+    <label for="players">1行に1人。「ID」または「ID:メモ」（例：589555643:3560）。カンマ区切りでも可。</label>
+    <textarea id="players" placeholder="589555643:3560&#10;674070008:3560"></textarea>
+    <div class="count" id="playerCount">0 / 100 人</div>
+    <div class="btns">
+      <button id="saveBtn">ブラウザに保存</button>
+      <button id="shareBtn">共有リンクをコピー</button>
+      <button id="dedupeBtn">重複を削除</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. ギフトコード</h2>
+    <label for="codes">1行に1つ。複数コードも順番に入力します。</label>
+    <textarea id="codes" style="min-height:70px" placeholder="WOS2026"></textarea>
+    <details style="margin-top:10px">
+      <summary>詳細設定</summary>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label for="delay">1人ごとの待ち時間（ミリ秒）</label>
+          <input type="number" id="delay" value="1500" min="500" step="100">
+        </div>
+        <div>
+          <label for="apiBase">APIのURL（中継サーバーを使う場合だけ変更）</label>
+          <input type="text" id="apiBase" value="https://wos-giftcode-api.centurygame.com/api">
+        </div>
+      </div>
+    </details>
+    <div class="btns">
+      <button class="primary" id="runBtn">一括入力を開始</button>
+      <button id="stopBtn" disabled>停止</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. 結果</h2>
+    <div class="progress"><div id="bar"></div></div>
+    <div class="summary" id="summary">まだ実行していません。</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>ID</th><th>メモ</th><th>名前</th><th>州</th><th>溶鉱炉</th><th>コード</th><th>結果</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="captchaBox">
+  <div class="card">
+    <h2>画像認証</h2>
+    <div id="captchaWho" style="font-size:13px;color:var(--muted)"></div>
+    <img id="captchaImg" alt="認証画像">
+    <input type="text" id="captchaInput" autocomplete="off" placeholder="画像の文字を入力">
+    <div class="btns">
+      <button class="primary" id="captchaOk">送信</button>
+      <button id="captchaReload">画像を更新</button>
+      <button id="captchaSkip">この人を飛ばす</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- MD5 (公式APIの署名に必要) ----------
+function md5(str) {
+  function add(x, y) { const l = (x & 0xffff) + (y & 0xffff); return (((x >> 16) + (y >> 16) + (l >> 16)) << 16) | (l & 0xffff); }
+  function rol(n, c) { return (n << c) | (n >>> (32 - c)); }
+  function cmn(q, a, b, x, s, t) { return add(rol(add(add(a, q), add(x, t)), s), b); }
+  function ff(a, b, c, d, x, s, t) { return cmn((b & c) | (~b & d), a, b, x, s, t); }
+  function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & ~d), a, b, x, s, t); }
+  function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+  function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | ~d), a, b, x, s, t); }
+  const bytes = new TextEncoder().encode(str);
+  const n = ((bytes.length + 8) >> 6) + 1;
+  const w = new Array(n * 16).fill(0);
+  for (let i = 0; i < bytes.length; i++) w[i >> 2] |= bytes[i] << ((i % 4) * 8);
+  w[bytes.length >> 2] |= 0x80 << ((bytes.length % 4) * 8);
+  w[n * 16 - 2] = bytes.length * 8;
+  let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+  for (let i = 0; i < w.length; i += 16) {
+    const oa = a, ob = b, oc = c, od = d, x = w.slice(i, i + 16);
+    a=ff(a,b,c,d,x[0],7,-680876936);d=ff(d,a,b,c,x[1],12,-389564586);c=ff(c,d,a,b,x[2],17,606105819);b=ff(b,c,d,a,x[3],22,-1044525330);
+    a=ff(a,b,c,d,x[4],7,-176418897);d=ff(d,a,b,c,x[5],12,1200080426);c=ff(c,d,a,b,x[6],17,-1473231341);b=ff(b,c,d,a,x[7],22,-45705983);
+    a=ff(a,b,c,d,x[8],7,1770035416);d=ff(d,a,b,c,x[9],12,-1958414417);c=ff(c,d,a,b,x[10],17,-42063);b=ff(b,c,d,a,x[11],22,-1990404162);
+    a=ff(a,b,c,d,x[12],7,1804603682);d=ff(d,a,b,c,x[13],12,-40341101);c=ff(c,d,a,b,x[14],17,-1502002290);b=ff(b,c,d,a,x[15],22,1236535329);
+    a=gg(a,b,c,d,x[1],5,-165796510);d=gg(d,a,b,c,x[6],9,-1069501632);c=gg(c,d,a,b,x[11],14,643717713);b=gg(b,c,d,a,x[0],20,-373897302);
+    a=gg(a,b,c,d,x[5],5,-701558691);d=gg(d,a,b,c,x[10],9,38016083);c=gg(c,d,a,b,x[15],14,-660478335);b=gg(b,c,d,a,x[4],20,-405537848);
+    a=gg(a,b,c,d,x[9],5,568446438);d=gg(d,a,b,c,x[14],9,-1019803690);c=gg(c,d,a,b,x[3],14,-187363961);b=gg(b,c,d,a,x[8],20,1163531501);
+    a=gg(a,b,c,d,x[13],5,-1444681467);d=gg(d,a,b,c,x[2],9,-51403784);c=gg(c,d,a,b,x[7],14,1735328473);b=gg(b,c,d,a,x[12],20,-1926607734);
+    a=hh(a,b,c,d,x[5],4,-378558);d=hh(d,a,b,c,x[8],11,-2022574463);c=hh(c,d,a,b,x[11],16,1839030562);b=hh(b,c,d,a,x[14],23,-35309556);
+    a=hh(a,b,c,d,x[1],4,-1530992060);d=hh(d,a,b,c,x[4],11,1272893353);c=hh(c,d,a,b,x[7],16,-155497632);b=hh(b,c,d,a,x[10],23,-1094730640);
+    a=hh(a,b,c,d,x[13],4,681279174);d=hh(d,a,b,c,x[0],11,-358537222);c=hh(c,d,a,b,x[3],16,-722521979);b=hh(b,c,d,a,x[6],23,76029189);
+    a=hh(a,b,c,d,x[9],4,-640364487);d=hh(d,a,b,c,x[12],11,-421815835);c=hh(c,d,a,b,x[15],16,530742520);b=hh(b,c,d,a,x[2],23,-995338651);
+    a=ii(a,b,c,d,x[0],6,-198630844);d=ii(d,a,b,c,x[7],10,1126891415);c=ii(c,d,a,b,x[14],15,-1416354905);b=ii(b,c,d,a,x[5],21,-57434055);
+    a=ii(a,b,c,d,x[12],6,1700485571);d=ii(d,a,b,c,x[3],10,-1894986606);c=ii(c,d,a,b,x[10],15,-1051523);b=ii(b,c,d,a,x[1],21,-2054922799);
+    a=ii(a,b,c,d,x[8],6,1873313359);d=ii(d,a,b,c,x[15],10,-30611744);c=ii(c,d,a,b,x[6],15,-1560198380);b=ii(b,c,d,a,x[13],21,1309151649);
+    a=ii(a,b,c,d,x[4],6,-145523070);d=ii(d,a,b,c,x[11],10,-1120210379);c=ii(c,d,a,b,x[2],15,718787259);b=ii(b,c,d,a,x[9],21,-343485551);
+    a = add(a, oa); b = add(b, ob); c = add(c, oc); d = add(d, od);
+  }
+  return [a, b, c, d].map(v => {
+    let s = ""; for (let j = 0; j < 4; j++) s += ((v >> (j * 8)) & 0xff).toString(16).padStart(2, "0"); return s;
+  }).join("");
+}
+
+// ---------- 公式API ----------
+const SECRET = "tB87#kPtkxqOS2"; // 公式ギフトコードページの署名キー
+const MAX_PLAYERS = 100;
+const $ = id => document.getElementById(id);
+
+function signed(params) {
+  params.time = Date.now();
+  const q = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&");
+  return `sign=${md5(q + SECRET)}&${q}`;
+}
+
+async function api(path, params) {
+  const res = await fetch(`${$("apiBase").value.replace(/\/$/, "")}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: signed(params),
+  });
+  if (res.status === 429) return { rateLimited: true };
+  return res.json();
+}
+
+// 結果メッセージを日本語に
+function describe(r) {
+  const msg = String(r.msg || "").toUpperCase();
+  const code = r.err_code;
+  if (r.code === 0 || msg === "SUCCESS") return ["受け取り成功", "ok", "done"];
+  if (msg.includes("RECEIVED") || code === 40008) return ["受け取り済み", "ok", "done"];
+  if (msg.includes("SAME TYPE") || code === 40011) return ["同種のコードを受け取り済み", "ok", "done"];
+  if (msg.includes("TIME ERROR") || code === 40007) return ["コードの期限切れ", "err", "codeDead"];
+  if (msg.includes("CDK NOT FOUND") || code === 40014) return ["コードが存在しません", "err", "codeDead"];
+  if (msg.includes("USED") || code === 40005) return ["コードの使用上限に達しました", "err", "codeDead"];
+  if (msg.includes("STOVE") || code === 40006) return ["溶鉱炉レベル不足", "warn", "done"];
+  if (msg.includes("CAPTCHA")) return ["画像認証が必要", "warn", "captcha"];
+  if (msg.includes("TIMEOUT") || code === 40004) return ["タイムアウト（再試行）", "warn", "retry"];
+  if (msg.includes("NOT LOGIN")) return ["ログイン失敗", "err", "retry"];
+  return [`不明: ${r.msg || JSON.stringify(r)}`, "err", "done"];
+}
+
+// ---------- プレイヤー一覧 ----------
+function parsePlayers(text) {
+  const out = [], seen = new Set();
+  for (const raw of text.split(/[\n,]+/)) {
+    const [id, ...rest] = raw.trim().split(":");
+    if (!/^\d{5,12}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ fid: id, note: rest.join(":").trim() });
+  }
+  return out;
+}
+
+function updateCount() {
+  const n = parsePlayers($("players").value).length;
+  const el = $("playerCount");
+  el.textContent = `${n} / ${MAX_PLAYERS} 人` + (n > MAX_PLAYERS ? "（多すぎます）" : "");
+  el.classList.toggle("over", n > MAX_PLAYERS);
+}
+
+function storage(fn) { try { return fn(localStorage); } catch { return null; } }
+
+function loadInitial() {
+  const m = location.hash.match(/players=([^&]+)/);
+  if (m) {
+    $("players").value = decodeURIComponent(m[1]).split(",").join("\n");
+  } else {
+    $("players").value = storage(s => s.getItem("wos-players")) || "";
+  }
+  $("delay").value = storage(s => s.getItem("wos-delay")) || 1500;
+  updateCount();
+}
+
+$("players").addEventListener("input", updateCount);
+$("saveBtn").onclick = () => {
+  storage(s => s.setItem("wos-players", $("players").value));
+  $("saveBtn").textContent = "保存しました";
+  setTimeout(() => $("saveBtn").textContent = "ブラウザに保存", 1500);
+};
+$("dedupeBtn").onclick = () => {
+  $("players").value = parsePlayers($("players").value)
+    .map(p => p.note ? `${p.fid}:${p.note}` : p.fid).join("\n");
+  updateCount();
+};
+$("shareBtn").onclick = async () => {
+  const list = parsePlayers($("players").value).map(p => p.note ? `${p.fid}:${p.note}` : p.fid).join(",");
+  const url = `${location.origin}${location.pathname}#players=${list}`;
+  try { await navigator.clipboard.writeText(url); $("shareBtn").textContent = "コピーしました"; }
+  catch { prompt("このリンクをコピーしてください", url); }
+  setTimeout(() => $("shareBtn").textContent = "共有リンクをコピー", 1500);
+};
+
+// ---------- 画像認証（人が入力する） ----------
+let captchaResolve = null, captchaFid = null;
+async function loadCaptcha(fid) {
+  $("captchaImg").removeAttribute("src");
+  const r = await api("captcha", { fid, init: 0 });
+  if (r.data && r.data.img) $("captchaImg").src = r.data.img;
+}
+function askCaptcha(player) {
+  captchaFid = player.fid;
+  $("captchaWho").textContent = `${player.nickname || player.fid} の受け取りに画像認証が必要です`;
+  $("captchaInput").value = "";
+  $("captchaBox").style.display = "flex";
+  loadCaptcha(player.fid);
+  $("captchaInput").focus();
+  return new Promise(res => captchaResolve = res);
+}
+function closeCaptcha(val) {
+  $("captchaBox").style.display = "none";
+  if (captchaResolve) captchaResolve(val);
+  captchaResolve = null;
+}
+$("captchaOk").onclick = () => closeCaptcha($("captchaInput").value.trim() || null);
+$("captchaInput").addEventListener("keydown", e => { if (e.key === "Enter") $("captchaOk").click(); });
+$("captchaReload").onclick = () => loadCaptcha(captchaFid);
+$("captchaSkip").onclick = () => closeCaptcha(null);
+
+// ---------- 実行 ----------
+let stopping = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function furnace(lv) {
+  lv = Number(lv);
+  if (!lv) return "";
+  if (lv <= 30) return `Lv${lv}`;
+  if (lv < 35) return `Lv30-${lv - 30}`;
+  return `FC${Math.floor((lv - 35) / 5) + 1}` + ((lv - 35) % 5 ? `-${(lv - 35) % 5}` : "");
+}
+
+function addRow(i, p, code) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${i + 1}</td><td>${p.fid}</td><td></td><td></td><td></td><td></td><td></td><td>待機中</td>`;
+  tr.children[2].textContent = p.note;
+  tr.children[6].textContent = code;
+  $("results").appendChild(tr);
+  return tr;
+}
+function setResult(tr, text, cls) {
+  const td = tr.children[7];
+  td.textContent = text; td.className = cls || "";
+}
+
+async function redeem(p, code, tr) {
+  let captcha = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (stopping) return "stopped";
+    const params = { fid: p.fid, cdk: code };
+    if (captcha) params.captcha_code = captcha;
+    const r = await api("gift_code", params);
+    if (r.rateLimited) { setResult(tr, "混雑中。60秒待って再試行…", "warn"); await sleep(60000); continue; }
+    const [text, cls, kind] = describe(r);
+    if (kind === "captcha") {
+      setResult(tr, "画像認証の入力待ち…", "warn");
+      captcha = await askCaptcha(p);
+      if (!captcha) { setResult(tr, "飛ばしました", "warn"); return "done"; }
+      continue;
+    }
+    if (kind === "retry") { setResult(tr, text, cls); await sleep(3000); continue; }
+    setResult(tr, text, cls);
+    return kind;
+  }
+  setResult(tr, "失敗（再試行の上限）", "err");
+  return "done";
+}
+
+$("runBtn").onclick = async () => {
+  const players = parsePlayers($("players").value);
+  const codes = $("codes").value.split(/\s+/).map(s => s.trim()).filter(Boolean);
+  if (!players.length) return alert("プレイヤーIDを入力してください");
+  if (players.length > MAX_PLAYERS) return alert(`プレイヤーは${MAX_PLAYERS}人までです`);
+  if (!codes.length) return alert("ギフトコードを入力してください");
+
+  const delay = Math.max(500, Number($("delay").value) || 1500);
+  storage(s => { s.setItem("wos-players", $("players").value); s.setItem("wos-delay", delay); });
+  stopping = false;
+  $("runBtn").disabled = true; $("stopBtn").disabled = false;
+  $("results").innerHTML = "";
+
+  const total = players.length * codes.length;
+  let done = 0;
+  const tally = { ok: 0, warn: 0, err: 0 };
+
+  try {
+    outer:
+    for (const code of codes) {
+      for (const [i, p] of players.entries()) {
+        if (stopping) break outer;
+        const tr = addRow(i, p, code);
+        tr.scrollIntoView({ block: "nearest" });
+        setResult(tr, "ログイン中…");
+        try {
+          const login = await api("player", { fid: p.fid });
+          if (login.rateLimited) { setResult(tr, "混雑中。60秒待って再試行…", "warn"); await sleep(60000); }
+          const d = login.data || {};
+          if (d.nickname) {
+            p.nickname = d.nickname;
+            const name = tr.children[3];
+            if (d.avatar_image) {
+              const img = document.createElement("img");
+              img.className = "avatar"; img.src = d.avatar_image; img.alt = "";
+              name.appendChild(img);
+            }
+            name.appendChild(document.createTextNode(d.nickname));
+            tr.children[4].textContent = d.kid || "";
+            tr.children[5].textContent = furnace(d.stove_lv);
+          } else if (!login.rateLimited) {
+            setResult(tr, "IDが見つかりません", "err"); tally.err++;
+            done++; $("bar").style.width = `${done / total * 100}%`;
+            await sleep(delay); continue;
+          }
+          const kind = await redeem(p, code, tr);
+          const cls = tr.children[7].className;
+          tally[cls in tally ? cls : "err"]++;
+          if (kind === "codeDead") {
+            // コード自体が無効なら残りの人は飛ばす
+            done += players.length - i;
+            $("bar").style.width = `${done / total * 100}%`;
+            continue outer;
+          }
+        } catch (e) {
+          setResult(tr, "通信エラー（下の説明を参照）", "err"); tally.err++;
+          console.error(e);
+          if (i === 0) {
+            alert("公式APIに接続できませんでした。ブラウザが通信を止めている（CORS）可能性があります。README の「中継サーバー」を参照してください。");
+            break outer;
+          }
+        }
+        done++;
+        $("bar").style.width = `${done / total * 100}%`;
+        $("summary").textContent = `${done} / ${total} 件　成功・受取済 ${tally.ok}　注意 ${tally.warn}　失敗 ${tally.err}`;
+        await sleep(delay);
+      }
+    }
+  } finally {
+    $("summary").textContent = `${stopping ? "停止しました" : "完了"}：成功・受取済 ${tally.ok}　注意 ${tally.warn}　失敗 ${tally.err}`;
+    $("runBtn").disabled = false; $("stopBtn").disabled = true;
+  }
+};
+$("stopBtn").onclick = () => { stopping = true; closeCaptcha(null); };
+
+loadInitial();
+</script>
+</body>
+</html>
