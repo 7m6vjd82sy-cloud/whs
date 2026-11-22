@@ -70,6 +70,7 @@
       <button id="saveBtn">ブラウザに保存</button>
       <button id="shareBtn">共有リンクをコピー</button>
       <button id="dedupeBtn">重複を削除</button>
+      <button id="reloadBtn">同盟リストを読み込み直す</button>
     </div>
   </section>
 
@@ -224,14 +225,23 @@ function updateCount() {
 
 function storage(fn) { try { return fn(localStorage); } catch { return null; } }
 
-function loadInitial() {
+// 同盟リスト（players.txt）を読み込む。読めなければ null
+async function fetchAllianceList() {
+  try {
+    const res = await fetch("players.txt", { cache: "no-store" });
+    return res.ok ? (await res.text()).trim() : null;
+  } catch { return null; }
+}
+
+async function loadInitial() {
+  $("delay").value = storage(s => s.getItem("wos-delay")) || 1500;
   const m = location.hash.match(/players=([^&]+)/);
   if (m) {
     $("players").value = decodeURIComponent(m[1]).split(",").join("\n");
   } else {
-    $("players").value = storage(s => s.getItem("wos-players")) || "";
+    // 同盟リストを優先し、読めないときだけブラウザの保存分を使う
+    $("players").value = (await fetchAllianceList()) || storage(s => s.getItem("wos-players")) || "";
   }
-  $("delay").value = storage(s => s.getItem("wos-delay")) || 1500;
   updateCount();
 }
 
@@ -240,6 +250,12 @@ $("saveBtn").onclick = () => {
   storage(s => s.setItem("wos-players", $("players").value));
   $("saveBtn").textContent = "保存しました";
   setTimeout(() => $("saveBtn").textContent = "ブラウザに保存", 1500);
+};
+$("reloadBtn").onclick = async () => {
+  const list = await fetchAllianceList();
+  if (!list) return alert("同盟リストを読み込めませんでした");
+  $("players").value = list;
+  updateCount();
 };
 $("dedupeBtn").onclick = () => {
   $("players").value = parsePlayers($("players").value)
