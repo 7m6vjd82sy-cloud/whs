@@ -1,10 +1,10 @@
-// Cloudflare Workers 用の中継サーバー（ブラウザから公式APIに直接つながらない場合だけ使う）
-// 公式ギフトコードAPIへの転送だけを許可する。
+// WHSギフトコード用の中継サーバー（Cloudflare Workers）
 const API = "https://wos-giftcode-api.centurygame.com/api/";
 const ALLOWED = ["player", "gift_code", "captcha"];
+const SITE = "https://7m6vjd82sy-cloud.github.io";
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": SITE,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
