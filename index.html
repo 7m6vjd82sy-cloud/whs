@@ -59,7 +59,7 @@
 <body>
 <main>
   <h1>WHS ギフトコード一括入力</h1>
-  <p class="sub">最大100人分のプレイヤーIDにギフトコードをまとめて入力します。公式サイトと同じAPIを使います。</p>
+  <p class="sub">最大150人分のプレイヤーIDにギフトコードをまとめて入力します。公式サイトと同じAPIを使います。</p>
 
   <section class="card">
     <h2>1. プレイヤーID</h2>
@@ -168,7 +168,7 @@ function md5(str) {
 
 // ---------- 公式API ----------
 const SECRET = "tB87#kPtkxqOS2"; // 公式ギフトコードページの署名キー
-const MAX_PLAYERS = 100;
+const MAX_PLAYERS = 150;
 const $ = id => document.getElementById(id);
 
 function signed(params) {
